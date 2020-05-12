@@ -32,8 +32,6 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.util.BlockUtils;
-import org.lwjgl.system.CallbackI;
-import org.omg.CORBA.TIMEOUT;
 
 @SearchTags({"XRay", "x ray", "OreFinder", "ore finder"})
 public final class XRayHack extends Hack implements UpdateListener,
