@@ -7,11 +7,19 @@
  */
 package net.wurstclient.hacks;
 
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Collections;
 
 import net.minecraft.block.Block;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
+import net.minecraft.network.packet.s2c.play.BlockBreakingProgressS2CPacket;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 import net.wurstclient.Category;
 import net.wurstclient.SearchTags;
 import net.wurstclient.clickgui.screens.EditBlockListScreen;
@@ -24,6 +32,8 @@ import net.wurstclient.events.UpdateListener;
 import net.wurstclient.hack.Hack;
 import net.wurstclient.settings.BlockListSetting;
 import net.wurstclient.util.BlockUtils;
+import org.lwjgl.system.CallbackI;
+import org.omg.CORBA.TIMEOUT;
 
 @SearchTags({"XRay", "x ray", "OreFinder", "ore finder"})
 public final class XRayHack extends Hack implements UpdateListener,
@@ -47,11 +57,31 @@ public final class XRayHack extends Hack implements UpdateListener,
 		"minecraft:nether_portal", "minecraft:nether_quartz_ore",
 		"minecraft:redstone_block", "minecraft:redstone_ore",
 		"minecraft:repeating_command_block", "minecraft:spawner",
-		"minecraft:tnt", "minecraft:torch", "minecraft:trapped_chest",
-		"minecraft:water");
-	
+		"minecraft:tnt", "minecraft:torch", "minecraft:trapped_chest");
+
+
+	public class TimeoutThread extends Thread {
+		@Override
+		public void run() {
+			//doneRender = false;
+			renderTicks = 0;
+			while(!doneRender && !stopThread) {
+				try {
+					renderTicks++;
+					Thread.sleep(1000);
+					if (renderTicks > TIMEOUT) doneRender = true;
+				} catch (Exception e) {
+				}
+			}
+		}
+	}
 	private ArrayList<String> oreNames;
-	
+	private static long TIMEOUT = 10;
+	private volatile long renderTicks = 0;
+	private volatile boolean doneRender = true;
+	private TimeoutThread timeoutThread;
+	private volatile boolean stopThread = false;
+
 	public XRayHack()
 	{
 		super("X-Ray", "Allows you to see ores through walls.");
@@ -68,7 +98,15 @@ public final class XRayHack extends Hack implements UpdateListener,
 	@Override
 	public void onEnable()
 	{
-		oreNames = new ArrayList<>(ores.getBlockNames());
+		//timeoutThread = new TimeoutThread();
+		//doneRender = false;
+		renderTicks = 0;
+		//timeoutThread.start();
+
+
+		oreNames = new ArrayList<>(new BlockListSetting("Ores", "",
+				"minecraft:chest",
+				"minecraft:diamond_ore").getBlockNames());
 		
 		EVENTS.add(UpdateListener.class, this);
 		EVENTS.add(SetOpaqueCubeListener.class, this);
@@ -77,6 +115,28 @@ public final class XRayHack extends Hack implements UpdateListener,
 		EVENTS.add(TesselateBlockListener.class, this);
 		EVENTS.add(RenderBlockEntityListener.class, this);
 		MC.worldRenderer.reload();
+
+		ClientPlayerEntity player = MC.player;
+		if (player != null) {
+			// Vec3d playerPos = player.getPos();
+			BlockPos initPlayerPos = player.getBlockPos();
+			BlockPos pos;
+			int radius = 4;
+			for (int i = -radius; i < radius; i++) {
+				for (int j = -radius; j < radius; j++) {
+					for (int k = -radius; k < radius; k++) {
+						pos = initPlayerPos.add(i, j ,k);
+						player.networkHandler.sendPacket(new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, pos, Direction.DOWN));
+					}
+				}
+			}
+		}
+		else {
+			System.err.println("MC.player NPE!");
+		}
+
+		MC.worldRenderer.reload();
+
 	}
 	
 	@Override
@@ -129,8 +189,9 @@ public final class XRayHack extends Hack implements UpdateListener,
 	@Override
 	public void onRenderBlockEntity(RenderBlockEntityEvent event)
 	{
-		if(!isVisible(BlockUtils.getBlock(event.getBlockEntity().getPos())))
+		if(!isVisible(BlockUtils.getBlock(event.getBlockEntity().getPos()))) {
 			event.cancel();
+		}
 	}
 	
 	public void openBlockListEditor(Screen prevScreen)

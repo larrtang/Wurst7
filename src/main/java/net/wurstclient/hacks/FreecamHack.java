@@ -7,6 +7,9 @@
  */
 package net.wurstclient.hacks;
 
+import net.minecraft.network.packet.c2s.play.PlayerActionC2SPacket;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import org.lwjgl.opengl.GL11;
 
 import net.minecraft.client.network.ClientPlayerEntity;
@@ -133,6 +136,25 @@ public final class FreecamHack extends Hack
 	public void onPlayerMove(IClientPlayerEntity player)
 	{
 		player.setNoClip(true);
+		if (MC.player != null) {
+			// Vec3d playerPos = player.getPos();
+			BlockPos initPlayerPos = ((ClientPlayerEntity)player).getBlockPos();
+			BlockPos pos;
+			System.out.println(initPlayerPos.getX());
+			int radius = 4;
+			for (int i = -radius; i < radius; i++) {
+				for (int j = -radius; j < radius; j++) {
+					for (int k = -radius; k < radius; k++) {
+						pos = initPlayerPos.add(i, j ,k);
+						MC.player.networkHandler.sendPacket(new PlayerActionC2SPacket(PlayerActionC2SPacket.Action.START_DESTROY_BLOCK, pos, Direction.DOWN));
+					}
+				}
+			}
+		}
+		else {
+			System.err.println("MC.player NPE!");
+		}
+
 	}
 	
 	@Override
